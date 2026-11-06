@@ -1,5 +1,9 @@
 # Independent DINO-CoReSeg GPU package — 100 epochs
 
+For the side-by-side five-fold training/validation loss and accuracy figure,
+see [PLOT_UPDATE.md](PLOT_UPDATE.md). It includes a standalone command that
+generates the figure from saved epoch CSVs without retraining or CUDA.
+
 Upload this entire folder and the three dataset folders to your NVIDIA SSH server. It does **not** import the existing `research/` project, its virtual environment, CPU checkpoints or CPU feature cache. Official DINOv2 source and source revision are included; the installer downloads and verifies the official pretrained weights. Dataset inventories and hashes are generated locally on your server. Dataset images are not duplicated into this code bundle.
 
 **Default full workflow:** audit and reconcile duplicates → create patient/group-safe splits → real CUDA smoke test → batched frozen-DINO extraction → **five CV models, 100 epochs each** → **one separate holdout model, 100 epochs** → six final-test partitions → metrics, tables, segmentation/localization figures and report. This means **600 model-epochs in total**, not 100 epochs divided across folds. `early_stopping: false` makes all models run the requested full 100 epochs; checkpoint selection still uses validation only. No baseline or ablation models are included.

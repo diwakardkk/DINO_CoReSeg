@@ -59,6 +59,11 @@ def run(base,folds=5,grid_points=1001):
     made=[]
     if draw_history(base,folds,'loss_0_1','Normalized segmentation loss: L / (1 + L)','01_train_validation_loss'):made.append('loss')
     if draw_history(base,folds,'accuracy','Macro image pixel accuracy','02_train_validation_accuracy'):made.append('accuracy')
+    from .paper_cv_plots import generate
+    finished=all((base/f'fold_{fold:02d}/status.json').exists() and
+                 read_json(base/f'fold_{fold:02d}/status.json').get('completed',False)
+                 for fold in range(1,folds+1))
+    if generate(base,folds,dpi=600 if finished else 300):made.append('combined_fold_loss_accuracy')
     completed=[]
     for fold in range(1,folds+1):
         path=base/f'fold_{fold:02d}/heldout_roc.npz';status=base/f'fold_{fold:02d}/status.json'
