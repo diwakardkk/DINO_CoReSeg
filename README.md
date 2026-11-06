@@ -1,0 +1,209 @@
+# Independent DINO-CoReSeg GPU package — 100 epochs
+
+Upload this entire folder and the three dataset folders to your NVIDIA SSH server. It does **not** import the existing `research/` project, its virtual environment, CPU checkpoints or CPU feature cache. Official DINOv2 source and source revision are included; the installer downloads and verifies the official pretrained weights. Dataset inventories and hashes are generated locally on your server. Dataset images are not duplicated into this code bundle.
+
+**Default full workflow:** audit and reconcile duplicates → create patient/group-safe splits → real CUDA smoke test → batched frozen-DINO extraction → **five CV models, 100 epochs each** → **one separate holdout model, 100 epochs** → six final-test partitions → metrics, tables, segmentation/localization figures and report. This means **600 model-epochs in total**, not 100 epochs divided across folds. `early_stopping: false` makes all models run the requested full 100 epochs; checkpoint selection still uses validation only. No baseline or ablation models are included.
+
+## 1. Upload layout
+
+Clone the code repository on your server (datasets are **not** stored in Git):
+
+```sh
+git clone https://github.com/diwakardkk/DINO_CoReSeg.git DINO_CoReSeg_GPU_100E
+cd DINO_CoReSeg_GPU_100E
+python3 scripts/verify_bundle.py
+```
+
+The repository includes the official DINOv2 source and a SHA-256-verified weight downloader. It excludes research dataset images, masks, archives and dataset-derived manifests. The pipeline discovers pairs and generates private audit records from your server datasets. Keep your datasets on the server separately using the layout below, or set `CORESEG_DATA_ROOT` to their existing parent directory. Results, checkpoints, feature caches and virtual environments are ignored by Git.
+
+```text
+/your/server/work/
+├── DINO_CoReSeg_GPU_100E/       this complete code folder
+│   ├── configs/gpu_100.yaml
+│   ├── src/  tests/  scripts/
+│   ├── vendor/dinov2/          official source, license and SOURCE_COMMIT.txt
+│   ├── vendor/dinov2_vits14_pretrain.pth   downloaded during installation
+│   ├── install_server.sh
+│   └── run_server.sh
+├── dataset-1/
+│   ├── kvasir-seg.zip
+│   └── kvasir-sessile.zip
+├── dataset-2/
+│   └── Dataset.zip            OR extracted Dataset/
+└── dataset-3/
+    └── PolypDataset.zip       OR extracted PolypDataset/
+```
+
+The data parent defaults to `..` relative to this code folder. To use data elsewhere, set `CORESEG_DATA_ROOT=/absolute/path/to/data-parent` or pass `--data-root /absolute/path/to/data-parent` to the launcher. This path must contain `dataset-1`, `dataset-2`, and `dataset-3`, not the contents of one individual dataset. Archive-only dataset-2/dataset-3 uploads are securely extracted once into staging folders and atomically renamed; original ZIP files are preserved. Existing extracted folders are not overwritten. DA/OLDTR remain excluded from training.
+
+Example upload from your Mac (replace the SSH destination):
+
+```sh
+rsync -avP DINO_CoReSeg_GPU_100E/ USER@SERVER:/your/server/work/DINO_CoReSeg_GPU_100E/
+rsync -avP dataset-1/ USER@SERVER:/your/server/work/dataset-1/
+rsync -avP dataset-2/Dataset.zip USER@SERVER:/your/server/work/dataset-2/
+rsync -avP dataset-3/PolypDataset.zip USER@SERVER:/your/server/work/dataset-3/
+```
+
+Create destination dataset directories first if needed. Do not upload the Mac `.venv`, CPU caches or CPU checkpoints. Allow **at least 60–100 GB free server storage** for archives/extraction, caches, all epoch checkpoints, native-resolution probability maps, predictions and figures; exact usage depends on compression and datasets. A local SSD/NVMe is preferable to slow network storage.
+
+## 2. Install on the server
+
+Use Linux with NVIDIA drivers and Python **3.11 or 3.12** where possible:
+
+```sh
+cd /your/server/work/DINO_CoReSeg_GPU_100E
+chmod +x install_server.sh run_server.sh
+./install_server.sh
+./run_server.sh check
+```
+
+The installer defaults to the official **PyTorch 2.11.0 / torchvision 0.26.0 CUDA 12.8 wheels**, then installs pinned scientific packages. A compatible NVIDIA driver/GPU allocation is required; the code fails rather than silently training on CPU. Installation needs internet once for dependencies and official pretrained weights. Existing weights at `vendor/dinov2_vits14_pretrain.pth` are verified and reused. After installation, model loading is offline. To prepare weights separately, run `python3 scripts/download_weights.py`, or copy the verified local checkpoint into that path.
+
+If your administrator requires a different compatible PyTorch CUDA build, use the official installer guidance and record the resulting versions:
+
+```sh
+CUDA_TAG=cu128 TORCH_VERSION=2.11.0 TORCHVISION_VERSION=0.26.0 ./install_server.sh
+```
+
+Do not guess a CUDA wheel tag from the toolkit alone: check driver compatibility and PyTorch's available wheel/version pairs. See https://pytorch.org/get-started/locally/ and https://pytorch.org/get-started/previous-versions/. `requirements.server.lock.txt` and each execution's environment report record actual installed versions. The pinned Linux CUDA environment must be validated on the server; local CPU tests are not evidence that CUDA was exercised.
+
+## 3. Start, disconnect, inspect, stop and resume
+
+```sh
+# Full 5-fold CV + separate holdout training/evaluation, all at 100 epochs:
+./run_server.sh start
+
+# It is detached with nohup, so closing SSH does not send it a hangup.
+tail -f outputs/launcher/console.log
+
+# Reconnect later:
+./run_server.sh status
+nvidia-smi
+
+# Graceful stop; saves a safe current batch position:
+./run_server.sh stop
+
+# Wait until the old process has exited, then resume automatically:
+./run_server.sh resume
+```
+
+For foreground execution inside `tmux` or a scheduler allocation:
+
+```sh
+./run_server.sh foreground
+```
+
+If the server is managed by Slurm/PBS, run inside an allocated GPU job and obey its process/time limits. `nohup` cannot keep a job alive after a scheduler allocation expires or the server shuts down. Checkpoints provide recovery in those cases. A lock prevents concurrent writers in the same package directory; the PID/status helper does not substitute for scheduler monitoring.
+
+Data in a different location:
+
+```sh
+CORESEG_DATA_ROOT=/data/your-datasets ./run_server.sh start
+# Or:
+./run_server.sh start --data-root /data/your-datasets
+```
+
+NVIDIA device selection:
+
+```sh
+# Default: all visible GPUs are used through DataParallel.
+CUDA_VISIBLE_DEVICES=0,1 ./run_server.sh start
+# One allocated GPU:
+CUDA_VISIBLE_DEVICES=0 ./run_server.sh start
+```
+
+Preserve the same visible GPU layout, configuration and precision policy when resuming. Batch size is probed once and recorded; resumption uses that saved batch size. Do not edit finalized manifests or model code in a running experiment. To change the scientific protocol, start a new version/output directory.
+
+## 4. Optional modes
+
+```sh
+./run_server.sh start --mode cv         # only five-fold CV, 100 epochs/fold
+./run_server.sh start --mode holdout    # one 100-epoch model + final six test partitions
+./run_server.sh start --mode evaluate  # evaluate an already completed/frozen holdout model
+./run_server.sh foreground --mode plots
+./run_server.sh foreground --mode audit
+```
+
+The default mode is `all`. All modes automatically reuse completed valid work. Testing remains blocked until the corresponding model reaches its stopping condition and is frozen. The GPU smoke run is a separate one-epoch integration test on eight development samples; it is never reported as the scientific model.
+
+## 5. GPU execution and scientific choices
+
+- DINOv2-S/14 is frozen and evaluated on CUDA. Batched inputs are 350 × 350 with official ImageNet normalization; 625 spatial patch tokens produce 384 × 25 × 25 features. CLS/register tokens are excluded and shapes are checked. Cache storage is float16; decoder inputs return to float32 under mixed precision.
+- Projection, eight 384D normal prototypes, residual CEF, and RGB/DINO residual RPR are preserved. No architecture is replaced. MiniBatchKMeans remains CPU-based to retain the original clustering algorithm; I/O, audit, SciPy surface metrics and plotting also use CPU.
+- Automatic BF16 where supported, otherwise FP16 with GradScaler; pinned host memory, asynchronous transfers, spawned persistent data workers, TF32 and cuDNN benchmarking are configured. Batched extraction/training probe memory with headroom and use all visible devices by default. The default cap is 64 training samples and 32 extraction samples **per GPU**; adjust before starting if needed. The selected effective batch is logged. Learning rate is **not silently scaled** with batch size.
+- The decoder is deliberately small and frozen-feature training can be I/O-bound. No promise of continuous 100% GPU utilization is made, and no artificial busy work is added. Multi-GPU DataParallel can have overhead for this small model. A single fast GPU can be more efficient; select devices explicitly if that matters.
+- Throughput defaults change numerical precision/batch size relative to the CPU experiment. This is a **new experiment** with fresh model weights, not continuation of the three CPU epochs. Seeds are saved; TF32/AMP/cuDNN benchmarking mean bitwise equality across hardware is not promised.
+
+## 6. What is saved if it stops?
+
+For **every completed epoch**: full model + optimizer + scaler + RNG checkpoint, separate JSON metrics, and an atomically updated history CSV. All 100 epoch checkpoints are retained. `best.pt` follows the predeclared validation Dice/FPR selection rule; `last.pt` is the commit record for resumption. Accepted best checkpoints can be recovered from retained epoch files if a process died between separate file replacements.
+
+Within an epoch: default checkpoint every **10 optimizer steps** or **60 seconds**, whichever is reached first, plus the last training batch. Step logs are flushed individually. A graceful SIGTERM/SIGINT saves at a safe batch boundary. Recovery restores optimizer/scaler/RNG and a deterministic batch cursor, avoiding a restart from epoch one. Interrupted validation is repeated without replaying committed optimizer steps. Cache files and per-image evaluation results are saved independently and reused.
+
+**SIGKILL, power loss or disk failure cannot guarantee zero lost work.** Steps since the last durable checkpoint can be lost (normally at most nine optimizer steps); replayed step log entries can repeat global step IDs, so use committed checkpoints/history as authoritative. Set `checkpoint.every_steps: 1` before a new study if every-step persistence matters more than throughput. Checkpoint files are atomically replaced with file fsync, but filesystem/hardware durability still applies.
+
+## 7. Evaluation, plots and tables
+
+- Five outer CV folds with grouped inner validation for epoch selection. All patient/duplicate-connected groups stay together. Prototypes are rebuilt from each fold's training subset only. Original FAR and official benchmark final tests remain excluded from CV.
+- One separate holdout model evaluated independently on FAR patients, Kvasir, CVC-ClinicDB, CVC-ColonDB, CVC-300 and ETIS. No final test threshold/model tuning. CVC-300/CVC-ColonDB held-out image correlation is documented.
+- Native-resolution per-image Dice, IoU, precision, recall, specificity, F2, boundary F1/IoU, HD95, ASSD, MAE, pixel accuracy and raw confusion counts. Surface failures receive explicit image-diagonal pixel penalties with counts; none are omitted.
+- Normal-frame ungated/gated FPR, frame/pixel specificity, FP area/fraction and 8-connected component counts. Published FAR 100-pixel gate is at native resolution; separately labeled 256-grid gates are exploratory. Healthy masks are explicitly derived empty targets.
+- Training-derived lesion-size strata and patient-cluster bootstrap intervals. Quantized streaming pixel ROC/AUC (65,536 bins) counts all evaluated pixels without holding billions of scores in RAM.
+- Requested loss/accuracy/ROC plots: predictive loss shown as **L/(1+L)** on 0–1 axes, raw losses retained; macro image pixel accuracy on 0–1 axes; genuine held-out ROC curves and AUC per fold/mean. Accuracy is background-sensitive and is not image classification accuracy. Optimization still uses segmentation + 0.10 contrastive + 0.30 auxiliary.
+- Original | Ground truth | Predicted mask | Predicted localization, plus error overlays, successes, low-Dice cases, small cases, healthy FPs and counter-evidence maps. Masks/probabilities are saved at native dimensions. PNG 300 DPI plus PDF/SVG figures use white backgrounds.
+- Source/size performance, raw training components, runtime/peak-memory records, separate decoder and end-to-end latency, CSV/Markdown/LaTeX tables, source/version/weight identities and a Markdown experiment report. Optional saliency metrics are omitted rather than using unverified implementations.
+
+Figures update periodically (default every five epochs, plus first/final epoch) and after evaluation/interruption. **Metrics and checkpoints still save every epoch.** Partial plots reflect actual available histories; no missing fold/epoch curves are invented.
+
+## 8. Outputs to collect
+
+```text
+outputs/dino_coreseg_gpu_100/
+├── logs/pipeline.log                     complete stdout/stderr
+├── smoke/                               integration artifacts only
+├── holdout/
+│   ├── checkpoints/epoch_001.pt … epoch_100.pt
+│   ├── epochs/epoch_001.json … epoch_100.json
+│   ├── best.pt / last.pt / FROZEN.json
+│   ├── logs/steps.jsonl / epochs.jsonl
+│   ├── training_history.csv / progress.json
+│   ├── predictions/<test-source>/        masks, probabilities, metadata
+│   ├── metrics/                         per-image/source/size/ROC/CI/runtime
+│   └── figures/                         segmentation, localization, plots
+├── tables/                              CSV, Markdown, LaTeX
+├── figures/architecture.{png,pdf,svg}
+├── reports/EXPERIMENT_SUMMARY.md
+└── pipeline_status.json
+outputs/dino_coreseg_gpu_100_cv5/
+├── splits/                              immutable grouped fold membership
+├── fold_01/ … fold_05/                   same checkpoint/log/result structure
+├── figures/01_train_validation_loss.*
+├── figures/02_train_validation_accuracy.*
+├── figures/03_roc_auc.*
+├── fold_metrics.csv / cv_summary.json
+└── status.json
+cache/                                  resumable CUDA DINO feature cache
+manifests/ / splits/                     audit and original holdout manifests
+requirements.server.lock.txt            exact installed server environment
+```
+
+Check `pipeline_status.json` and the per-fold evaluation status before claiming completion. A checkpoint file or a plot alone does not establish a finished study. Keep the entire output directories and configuration/version files for research reproducibility.
+
+## Local validation limits and sources
+
+The package is checked locally for syntax, architecture/metric behavior, safe extraction, atomic checkpointing, and step/epoch resumption on CPU test fixtures. **CUDA execution and the pinned Linux environment must be checked on the NVIDIA server.** No GPU training results are included or fabricated. The launcher runs a real CUDA smoke test before full work.
+
+Official technical references: https://docs.pytorch.org/docs/stable/notes/amp_examples.html and https://pytorch.org/get-started/previous-versions/. Official DINO source is bundled with its original license; official pretrained weights are downloaded during installation and their configured SHA-256 is verified. Dataset licenses/clinical provenance are not established solely by local file counts. `CPU_METHODS_REFERENCE.md` preserves the original scientific design; GPU-specific changes and current settings are defined here and in `configs/gpu_100.yaml`.
+
+## Upload checksum verification
+
+The upload ZIP excludes local virtual environments, caches, tests' temporary data and run outputs. After extracting it on the server, optionally verify its static files before installation:
+
+```sh
+python3 scripts/verify_bundle.py
+```
+
+`LOCAL_VALIDATION.md` records exactly what was and was not checked locally. If you intentionally edit source/configuration files, the original bundle checksum will differ; record that change and start a new scientific configuration rather than altering a running study.
+
+Dataset archive hashes are established on the first server execution and checked on resume. They are not compared against a published reference archive hash. Expected collection counts, pair matching and image/mask checks remain enforced.

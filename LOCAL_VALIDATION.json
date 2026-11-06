@@ -1,0 +1,24 @@
+{
+  "cpu_logic_tests_passed": 17,
+  "cuda_execution_checked": false,
+  "full_experiment_started": false,
+  "official_backbone_loaded_offline": true,
+  "official_backbone_spatial_shape": [
+    1,
+    384,
+    25,
+    25
+  ],
+  "frozen_backbone_parameters": 22056576,
+  "weights_sha256": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+  "checked_hardware": {
+    "amp_dtype": "None",
+    "cuda_build": null,
+    "device": "cpu",
+    "gpus": [],
+    "python_platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "torch": "2.14.0"
+  },
+  "server_pinned_environment_executed_locally": false,
+  "note": "Unit test fixtures are not scientific results. Run the server CUDA preflight and real-data smoke test."
+}

@@ -1,0 +1,70 @@
+experiment: dino_coreseg_gpu_100
+data_root: ..
+device: cuda
+seed: 42
+threads: 8
+image_size: 350
+rgb_size: 100
+feature_dim: 384
+grid_size: 25
+projection_dim: 64
+prototype_count: 8
+max_epochs: 100
+early_stopping: false
+patience: 12
+learning_rate: 0.0003
+weight_decay: 0.0001
+threshold: 0.5
+normal_fpr_limit: 0.10
+normal_component_gates: [1, 10, 50, 100, 500]
+contrast_weight: 0.10
+auxiliary_weight: 0.30
+small_weight_cap: 3.0
+background_occupancy: 0.01
+foreground_occupancy: 0.90
+prototype_patches_per_image: 16
+prototype_max_per_category: 1000
+boundary_tolerance_pixels: 2
+boundary_iou_fraction: 0.02
+phash_hamming_threshold: 4
+flip_augmentation: false
+batch_size: auto
+extraction_batch_size: auto
+evaluation_batch_size: auto
+gpu:
+  all_visible_devices: true
+  amp: true
+  amp_dtype: auto
+  tf32: true
+  cudnn_benchmark: true
+  deterministic: false
+  batch_cap_per_gpu: 64
+  extraction_cap_per_gpu: 32
+  memory_fraction_for_probe: 0.70
+loader:
+  workers: 4
+  prefetch_factor: 2
+  pin_memory: true
+checkpoint:
+  every_steps: 10
+  every_seconds: 60
+  keep_every_epoch: true
+artifacts:
+  plot_every_epochs: 5
+evaluation:
+  metric_workers: 4
+  roc_bins: 65536
+  bootstrap_replicates: 500
+  qualitative_examples: 3
+cross_validation:
+  enabled: true
+  folds: 5
+  inner_folds: 5
+  roc_grid_points: 1001
+backbone:
+  name: dinov2_vits14
+  local_repo: vendor/dinov2
+  checkpoint: vendor/dinov2_vits14_pretrain.pth
+  weight_sha256: b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]

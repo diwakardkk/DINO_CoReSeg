@@ -1,0 +1,35 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mplcache/
+outputs/
+cache/
+manifests/
+splits/
+*.tmp
+
+# External datasets must never be committed. Audit metadata remains required.
+dataset-*/
+Dataset/
+PolypDataset/
+data/
+datasets/
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# Local environment, credentials and generated run artifacts.
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+*.pyc
+local_preflight.txt
+requirements.server.lock.txt
+server.lock
+
+# Dataset-derived audit records are generated privately on the server.
+/dataset_audit/
+/vendor/*.pth
