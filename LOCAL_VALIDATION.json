@@ -1,5 +1,5 @@
 {
-  "cpu_logic_tests_passed": 17,
+  "cpu_logic_tests_passed": 27,
   "cuda_execution_checked": false,
   "full_experiment_started": false,
   "official_backbone_loaded_offline": true,
@@ -20,5 +20,6 @@
     "torch": "2.14.0"
   },
   "server_pinned_environment_executed_locally": false,
-  "note": "Unit test fixtures are not scientific results. Run the server CUDA preflight and real-data smoke test."
+  "note": "Unit test fixtures are not scientific results. Run the server CUDA preflight and real-data smoke test.",
+  "gpu_control_flow_tests": "Mocked allocation, mixed precision, all-device memory/preflight and launcher tests; no CUDA execution"
 }

@@ -23,17 +23,13 @@ class Tee:
 
 
 def preflight(c):
-    from .runtime import hardware,device
+    from .runtime import hardware,validate_cuda
     root=Path(c['root'])
     for name in ['dataset-1','dataset-2','dataset-3']:
         if not (root/name).is_dir():raise FileNotFoundError(f'Missing {root/name}; pass --data-root /path/to/dataset-parent')
     weights=RESEARCH/c['backbone']['checkpoint']
     if file_hash(weights)!=c['backbone']['weight_sha256']:raise RuntimeError('Bundled DINO weights failed checksum')
-    cuda_executed=False
-    if c['device']=='cuda':
-        x=torch.ones(16,16,device=device(c));value=(x@x).sum()
-        if not torch.isfinite(value):raise RuntimeError('CUDA matrix test failed')
-        torch.cuda.synchronize();cuda_executed=True
+    cuda_executed=validate_cuda(c)
     report={'passed':True,'CUDA_execution_checked':cuda_executed,'hardware':hardware(c),
             'data_root':str(root),'weights_sha256':file_hash(weights),'max_epochs':c['max_epochs'],
             'early_stopping':c['early_stopping'],'CV_models':5 if c['cross_validation']['enabled'] else 0,

@@ -42,7 +42,7 @@ gpu:
   extraction_cap_per_gpu: 32
   memory_fraction_for_probe: 0.70
 loader:
-  workers: 4
+  workers: auto
   prefetch_factor: 2
   pin_memory: true
 checkpoint:

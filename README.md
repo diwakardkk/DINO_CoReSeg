@@ -4,6 +4,51 @@ Upload this entire folder and the three dataset folders to your NVIDIA SSH serve
 
 **Default full workflow:** audit and reconcile duplicates → create patient/group-safe splits → real CUDA smoke test → batched frozen-DINO extraction → **five CV models, 100 epochs each** → **one separate holdout model, 100 epochs** → six final-test partitions → metrics, tables, segmentation/localization figures and report. This means **600 model-epochs in total**, not 100 epochs divided across folds. `early_stopping: false` makes all models run the requested full 100 epochs; checkpoint selection still uses validation only. No baseline or ablation models are included.
 
+## RTX 3090 / V100 server setup
+
+The supplied server snapshot has **six RTX 3090 24-GB cards** (physical indices **0, 1, 3, 5, 6, 7**) and **two V100S 32-GB cards** (**2, 4**). All eight already had running workloads; utilization in that screenshot is not this experiment's utilization. Use only the GPU allocation available to your job. GPU memory is separate per device, not a combined 208-GB pool.
+
+For the six matching RTX 3090 cards, use the new launcher:
+
+```sh
+cd ~/Diwakar/November_Segmentation_research/DINO_CoReSeg
+./run_3090.sh install
+./run_3090.sh check
+./run_3090.sh start
+./run_3090.sh status
+# After an interruption:
+./run_3090.sh resume
+```
+
+Without an existing `CUDA_VISIBLE_DEVICES`, this launcher selects RTX 3090 cards only, puts the one with the most free memory first for gathered outputs, and saves their UUIDs/order in `outputs/launcher/rtx3090_selection.json`. That choice is reused for installation, check, start and resume. It does not change clocks, power limits, or any existing processes. The mask supplied by you or your scheduler is preserved, and scheduler jobs without an explicit mask must provide their allocation. `status` and `stop` need no selection.
+
+If only a subset is assigned to you, specify it consistently, for example:
+
+```sh
+# Example only: choose the indices actually allocated to your job.
+export CUDA_VISIBLE_DEVICES=5,6,7
+./run_3090.sh install
+./run_3090.sh check
+./run_3090.sh start
+```
+
+To deliberately include both GPU types when **all eight are allocated to you**:
+
+```sh
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+./install_server.sh
+./run_server.sh check
+./run_server.sh start
+```
+
+The installer defaults to **PyTorch 2.11.0 / torchvision 0.26.0 with cu126** so both RTX 3090 and V100 work. The driver's displayed CUDA 13.0 is its supported maximum, not the required wheel version. PyTorch 2.11 cu128/cu130 wheels do not support Volta/V100; keep cu126 for mixed/V100 use. See the [official architecture matrix](https://dev-discuss.pytorch.org/t/dropping-volta-support-from-cuda-12-8-binaries-for-release-2-11/3290) and [NVIDIA driver compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/latest/595/minor-version-compatibility.html).
+
+Mixed RTX/V100 DataParallel uses FP16 AMP; the RTX-only group automatically uses native BF16 when supported. Equal batch scattering across unlike cards can be slower; compare actual measured throughput before assuming that adding V100s improves speed. This package keeps the existing DataParallel training and global contrastive loss; it does not replace them with DDP or alter the research objective.
+
+Batch probes check peak usage and free memory on **every selected GPU**, retain the configured 30% headroom, and reserve additional memory for optimizer states. The global training batch is capped at `64 × selected GPUs` and extraction at `32 × selected GPUs`, and reduced on OOM/insufficient headroom. These are caps, not guaranteed batch sizes or benchmark-optimal choices. Probe decisions are saved in `outputs/<experiment>/reports/batch_probe_*.json`. The primary GPU still holds gathered tensors and the global loss. Pinned, persistent data loaders choose up to eight workers per loader based on CPU affinity and the three concurrently retained loaders. The RTX launcher enables expandable allocator segments unless overridden.
+
+The 85,287-parameter decoder, cached feature I/O, prototype fitting, audits and native CPU evaluation can limit GPU utilization. Neither 100% utilization nor faster training on six/eight cards is guaranteed. Automatic batch sizing maximizes within the configured memory cap, not measured speed; different global batches also change optimization steps per epoch. The full study remains five folds × 100 epochs plus a separate 100-epoch holdout model, with the same per-epoch results, checkpoint recovery, metrics and figures. This source revision requires a fresh experiment if you already trained with a previous revision; old checkpoints reject changed implementation/device identities rather than silently continuing a changed study.
+
 ## 1. Upload layout
 
 Clone the code repository on your server (datasets are **not** stored in Git):
@@ -58,12 +103,12 @@ chmod +x install_server.sh run_server.sh
 ./run_server.sh check
 ```
 
-The installer defaults to the official **PyTorch 2.11.0 / torchvision 0.26.0 CUDA 12.8 wheels**, then installs pinned scientific packages. A compatible NVIDIA driver/GPU allocation is required; the code fails rather than silently training on CPU. Installation needs internet once for dependencies and official pretrained weights. Existing weights at `vendor/dinov2_vits14_pretrain.pth` are verified and reused. After installation, model loading is offline. To prepare weights separately, run `python3 scripts/download_weights.py`, or copy the verified local checkpoint into that path.
+The installer defaults to the official **PyTorch 2.11.0 / torchvision 0.26.0 CUDA 12.6 wheels**, then installs pinned scientific packages. A compatible NVIDIA driver/GPU allocation is required; the code fails rather than silently training on CPU. Installation needs internet once for dependencies and official pretrained weights. Existing weights at `vendor/dinov2_vits14_pretrain.pth` are verified and reused. After installation, model loading is offline. To prepare weights separately, run `python3 scripts/download_weights.py`, or copy the verified local checkpoint into that path.
 
 If your administrator requires a different compatible PyTorch CUDA build, use the official installer guidance and record the resulting versions:
 
 ```sh
-CUDA_TAG=cu128 TORCH_VERSION=2.11.0 TORCHVISION_VERSION=0.26.0 ./install_server.sh
+CUDA_TAG=cu126 TORCH_VERSION=2.11.0 TORCHVISION_VERSION=0.26.0 ./install_server.sh
 ```
 
 Do not guess a CUDA wheel tag from the toolkit alone: check driver compatibility and PyTorch's available wheel/version pairs. See https://pytorch.org/get-started/locally/ and https://pytorch.org/get-started/previous-versions/. `requirements.server.lock.txt` and each execution's environment report record actual installed versions. The pinned Linux CUDA environment must be validated on the server; local CPU tests are not evidence that CUDA was exercised.

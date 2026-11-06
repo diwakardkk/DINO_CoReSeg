@@ -12,7 +12,7 @@ from .model_coreseg import DINOCoReSeg
 from .losses import objective
 from .extract_features import CachedDataset
 from .runtime import (device,parallelize,unwrap,make_loader,move_batch,autocast,amp_dtype,
-                      rng_state,restore_rng,optimizer_to,tune_batch,synchronize,hardware)
+                      rng_state,restore_rng,optimizer_to,tune_batch,synchronize,hardware,gpu_identity)
 from .cv_metrics import monitor_partition
 
 
@@ -63,6 +63,7 @@ def train_model(c,train,val,prototypes,directory,protocol,seed,on_epoch=None):
               'backbone':read_json(RESEARCH/'cache/backbone_identity.json'),
               'batch_size':batch_size,'amp_dtype':str(amp_dtype(c)),
               'visible_gpus':torch.cuda.device_count() if c['device']=='cuda' else 0}
+    identity['gpu_devices']=gpu_identity(c)
     optimizer=torch.optim.AdamW(raw.parameters(),lr=c['learning_rate'],weight_decay=c['weight_decay'],fused=c['device']=='cuda')
     scaler=torch.amp.GradScaler('cuda',enabled=c['device']=='cuda' and amp_dtype(c)==torch.float16)
     history=[];epoch=0;next_step=0;global_step=0;bad=0;best_key=(-1,-float('inf'),-float('inf'));running={};running_count=0
