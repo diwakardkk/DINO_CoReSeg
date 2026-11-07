@@ -1,0 +1,97 @@
+experiment: dino_coreseg_v2_448
+data_root: ..
+device: cuda
+seed: 42
+threads: 8
+image_size: 448
+rgb_size: 224
+feature_dim: 384
+projection_dim: 64
+prototype_count: 8
+max_epochs: 100
+early_stopping: false
+patience: 12
+learning_rate: 0.0003
+weight_decay: 0.0001
+threshold: 0.5
+normal_fpr_limit: 0.1
+normal_component_gates:
+- 1
+- 10
+- 50
+- 100
+- 500
+contrast_weight: 0.1
+auxiliary_weight: 0.3
+small_weight_cap: 3.0
+background_occupancy: 0.01
+foreground_occupancy: 0.9
+prototype_patches_per_image: 16
+prototype_max_per_category: 1000
+boundary_tolerance_pixels: 2
+boundary_iou_fraction: 0.02
+phash_hamming_threshold: 4
+flip_augmentation: false
+batch_size: auto
+extraction_batch_size: auto
+evaluation_batch_size: auto
+gpu:
+  all_visible_devices: false
+  amp: true
+  amp_dtype: auto
+  tf32: true
+  cudnn_benchmark: true
+  deterministic: false
+  batch_cap_per_gpu: 64
+  extraction_cap_per_gpu: 32
+  memory_fraction_for_probe: 0.7
+loader:
+  workers: auto
+  prefetch_factor: 2
+  pin_memory: true
+checkpoint:
+  every_steps: 10
+  every_seconds: 60
+  keep_epoch_every: 0
+artifacts:
+  plot_every_epochs: 0
+evaluation:
+  metric_workers: 4
+  roc_bins: 65536
+  bootstrap_replicates: 500
+  qualitative_examples: 3
+  standard_size: 350
+  probability_retention: selected_only
+  qualitative_quantiles:
+    Kvasir: 0.5
+    CVC-ClinicDB: 0.5
+    CVC-ColonDB: 0.5
+    ETIS-LaribPolypDB: 0.25
+    FAR: 0.5
+backbone:
+  name: dinov2_vits14
+  local_repo: vendor/dinov2
+  checkpoint: vendor/dinov2_vits14_pretrain.pth
+  weight_sha256: b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9
+  mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  std:
+  - 0.229
+  - 0.224
+  - 0.225
+v1_root: ../DINO_CoReSeg
+patch_size: 14
+selection_size: 350
+variant: resolution
+intermediate_layers:
+- 11
+gradient_accumulation: 1
+gradient_clip: 5.0
+lr_schedule: constant
+minimum_learning_rate: 3.0e-06
+boundary_weight: 0.0
+boundary_radius: 4
+boundary_emphasis: 2.0
+lesion_detection_iou: 0.1

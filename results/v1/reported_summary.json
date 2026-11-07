@@ -1,0 +1,50 @@
+{
+  "provenance": "Transcription of project-owner-supplied completed server output; raw server artifacts not downloaded in this update",
+  "holdout": {
+    "completed": true,
+    "images": 2004,
+    "positive_images": 848,
+    "normal_images": 1156,
+    "selected_epoch": 60,
+    "validation_dice": 0.8326059,
+    "validation_normal_fpr": 0.0811496,
+    "checkpoint_sha256": "96e251ee5bdd0ea206f4875439e4b2fa0f38bddbb8cd250c775fe35a82e592fa"
+  },
+  "cross_validation": {
+    "completed": true,
+    "completed_folds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "epochs_per_fold": 100,
+    "positive_dice": {
+      "mean": 0.8139210562369383,
+      "std": 0.018086751903662185
+    },
+    "positive_iou": {
+      "mean": 0.7374213032293386,
+      "std": 0.019344058270486148
+    },
+    "pixel_auc": {
+      "mean": 0.9807843084829342,
+      "std": 0.009050072795298823
+    },
+    "normal_fp_frame": {
+      "mean": 0.09254489718199518,
+      "std": 0.011362572447789834
+    },
+    "pooled_heldout_pixel_auc": 0.9802403726746534,
+    "note": "Descriptive fold variability; ROC uses native pixels."
+  },
+  "v2": {
+    "completed": false,
+    "last_owner_reported_stage": "preserving_v1",
+    "server_cpu_tests_passed": 36,
+    "server_cuda_kernel_check": "passed",
+    "server_smoke_stage": "smoke_complete",
+    "performance_results": null
+  }
+}

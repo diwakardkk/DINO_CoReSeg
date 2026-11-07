@@ -1,0 +1,57 @@
+{
+  "local_validation_date": "2026-11-07",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "python": "3.14.7",
+  "packages": {
+    "torch": "2.15.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1",
+    "matplotlib": "3.11.2",
+    "Pillow": "13.0.0",
+    "PyYAML": "6.0.3",
+    "pytest": "9.2.0"
+  },
+  "tests": {
+    "passed": 36,
+    "warnings": 6,
+    "seconds": 12.16,
+    "scope": "CPU tests; expected optional xFormers warnings"
+  },
+  "static_python_files": 24,
+  "bash_syntax": "passed",
+  "local_v1_preservation": {
+    "root": "/Users/prabhavkumar/Diwakar/November_Segmentation_research_/DINO_CoReSeg_GPU_100E",
+    "source_files_verified": 31,
+    "mismatches": [],
+    "git_status_short": "",
+    "scope": "Local source only; actual completed server artifacts must be captured by prepare"
+  },
+  "cuda_validation": "not_run",
+  "gpu_memory_measured": false,
+  "full_training_started": false,
+  "server_access": "Noninteractive SSH authentication rejected (publickey,password); no server modifications",
+  "dataset_usage": "Runtime prepare reads actual frozen V1 manifests; no invented local counts",
+  "feature_shape_final": [
+    1,
+    1,
+    384,
+    32,
+    32
+  ],
+  "feature_shape_multilayer": [
+    1,
+    4,
+    384,
+    32,
+    32
+  ],
+  "frozen_backbone_parameters": 22056576,
+  "trainable_parameters": {
+    "resolution": 85287,
+    "rgb_path": 92320,
+    "boundary_refinement": 106594,
+    "boundary_loss": 106594,
+    "multilayer": 180902
+  }
+}

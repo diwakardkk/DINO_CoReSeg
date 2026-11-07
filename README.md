@@ -1,4 +1,77 @@
-# Independent DINO-CoReSeg GPU package — 100 epochs
+# DINO-CoReSeg — V1 results and independent V2 study
+
+V1 completed five-fold cross-validation and a separate holdout run, with **100 epochs per model**. V2 is an independent, higher-resolution study in [`DINO_CoReSeg_V2/`](DINO_CoReSeg_V2/); its performance results are not yet available.
+
+## Completed V1 results
+
+The table below transcribes the completed server's `holdout/metrics/final_metrics.csv` supplied by the project owner. Positive-row values are **means across images at native resolution**, not pooled pixel ratios. There are **2,004 final-test images: 848 polyp-positive and 1,156 healthy**. The selected holdout checkpoint is epoch **60**, with validation Dice **0.8326059** and validation healthy-frame FPR **0.0811496**. These validation figures come from the owner's checkpoint report.
+
+| Final-test partition | Target | Images | Dice ↑ | IoU ↑ | Precision ↑ | Recall ↑ | F2 ↑ | HD95 ↓ (px) | ASSD ↓ (px) | Healthy-frame FPR ↓ |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Kvasir | Polyp | 100 | 0.8617 | 0.7925 | 0.8949 | 0.8557 | 0.8557 | 73.22 | 36.95 | — |
+| CVC-ClinicDB | Polyp | 62 | 0.8615 | 0.7886 | 0.8780 | 0.8669 | 0.8622 | 22.62 | 8.61 | — |
+| CVC-300 | Polyp | 60 | 0.7994 | 0.6935 | 0.9210 | 0.7533 | 0.7639 | 24.21 | 9.70 | — |
+| CVC-ColonDB | Polyp | 380 | 0.6503 | 0.5597 | 0.7663 | 0.6246 | 0.6300 | 134.55 | 106.98 | — |
+| ETIS-LaribPolypDB | Polyp | 196 | 0.5943 | 0.5217 | 0.6464 | 0.5984 | 0.5928 | 406.70 | 333.50 | — |
+| FAR | Polyp | 50 | 0.6616 | 0.5956 | 0.7195 | 0.6635 | 0.6610 | 162.97 | 132.22 | — |
+| FAR | Healthy | 1,156 | — | — | — | — | — | — | — | 0.06574 (6.57%) |
+
+Healthy-frame FPR means any predicted foreground on a healthy frame at the saved threshold; normal-frame specificity is **0.93426 (93.43%)**. Normal-image Dice/IoU are intentionally undefined here. Native HD95/ASSD depend on image dimensions and include V1's empty-prediction penalty; they are not physical distances in millimetres. V1 missed the entire lesion mask on 11.84% of ColonDB positives, 17.86% of ETIS positives and 14.00% of FAR positives. High pixel accuracy alone should not be interpreted as high lesion recall.
+
+Across the five held-out CV folds, positive Dice was **0.81392 ± 0.01809**, IoU **0.73742 ± 0.01934**, native-pixel AUC **0.98078 ± 0.00905**, and healthy-frame FPR **0.09254 ± 0.01136** (fold mean ± standard deviation, not confidence intervals). Pooled held-out native-pixel AUC was **0.98024**. These development CV results are separate from the final-test table and are not patient-level AUC.
+
+The reported completion markers confirm all five folds and the 2,004-image holdout evaluation finished. Rounded table entries and full-precision machine-readable transcriptions are in [`results/v1/`](results/v1/). Raw checkpoints, private per-image records, predictions and datasets are **not uploaded to GitHub**. These summaries are transcribed from owner-supplied server output; the completed server artifacts were not independently downloaded in this update.
+
+## Independent V2 code
+
+See [`DINO_CoReSeg_V2/README_V2.md`](DINO_CoReSeg_V2/README_V2.md) for installation, separate experiment configurations, shared dataset paths, resume, native-resolution evaluation, ROC and paper figures. V2 keeps all generated caches, checkpoints, logs and results inside its own folder. V1 scientific code, configurations and results remain unchanged.
+
+The first V2 experiment uses frozen DINOv2-S/14 with **448 × 448 input, a 32 × 32 patch grid, 384 feature channels, 64 projection channels, eight prototypes and RGB refinement at 224 × 224**. Resolution-only, RGB context, multiscale refinement, boundary loss and multilayer DINO changes have separate versioned configurations. The default is a 100-epoch holdout run; five-fold CV is a separate explicit command.
+
+Validation status: **36 CPU tests passed on the server**, a CUDA kernel check passed, and the real-data CUDA smoke stage reported `smoke_complete`. The owner subsequently launched V2; the latest supplied status was `preserving_v1`. **No completed V2 training or performance result is claimed.**
+
+For the current server, keep the deployed sibling layout:
+
+```text
+November_Segmentation_research/
+  DINO_CoReSeg/       completed V1
+  DINO_CoReSeg_V2/    independent V2
+  dataset-1/
+  dataset-2/
+  dataset-3/
+```
+
+The GitHub checkout contains V1 source at its root and V2 source in a subfolder. When running V2 directly from that nested checkout, explicitly set the paths to the completed V1 folder and the shared dataset parent:
+
+```bash
+cd DINO_CoReSeg_V2
+export CORESEG_V1_ROOT=/data1/ansh/Diwakar/November_Segmentation_research/DINO_CoReSeg
+export CORESEG_DATA_ROOT=/data1/ansh/Diwakar/November_Segmentation_research
+# Example GPU index only; use the allocation assigned to you.
+CUDA_VISIBLE_DEVICES=5 ./run_v2.sh install
+./run_v2.sh test
+CUDA_VISIBLE_DEVICES=5 ./run_v2.sh check
+CUDA_VISIBLE_DEVICES=5 ./run_v2.sh prepare
+CUDA_VISIBLE_DEVICES=5 ./run_v2.sh smoke
+# Start only when no matching run is already alive:
+CUDA_VISIBLE_DEVICES=5 ./run_v2.sh start
+./run_v2.sh status
+# Resume after interruption:
+CUDA_VISIBLE_DEVICES=5 ./run_v2.sh resume
+```
+
+Plot saved V2 histories without CUDA or retraining:
+
+```bash
+.venv/bin/python -m src.plot_paper --experiment dino_coreseg_v2_448
+```
+
+V2 reads the actual frozen V1 manifests and provenance to preserve the comparison; it does not import V1 source, environments or feature caches. Do not replace or restart the owner's currently running server copy just to update this repository.
+
+---
+
+## Original V1 GPU package documentation
+
 
 For the side-by-side five-fold training/validation loss and accuracy figure,
 see [PLOT_UPDATE.md](PLOT_UPDATE.md). It includes a standalone command that
